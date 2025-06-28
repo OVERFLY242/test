@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Secure Gallery</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 10px;
+      background-color: #121212;
+      color: #fff;
+    }
+    h1 {
+      color: #00BFFF;
+      text-align: center;
+    }
+    .gallery {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+      justify-content: center;
+    }
+    .card {
+      background: #1e1e1e;
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 10px;
+      width: 150px;
+      text-align: center;
+    }
+    .card img {
+      width: 100%;
+      border-radius: 4px;
+    }
+    select, input[type="file"], button {
+      margin-top: 10px;
+      width: 100%;
+      padding: 8px;
+      border-radius: 5px;
+      border: none;
+    }
+    button {
+      background-color: #00BFFF;
+      color: white;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Secure Gallery</h1>
+
+  <select id="targetUser">
+    <option value="">— Choisir un utilisateur —</option>
+    <option value="admin">Admin</option>
+    <option value="user1">User 1</option>
+    <option value="user2">User 2</option>
+  </select>
+
+  <input type="file" id="imageInput" accept="image/*">
+  <button onclick="uploadImage()">📤 Upload vers Imgur</button>
+
+  <div class="gallery" id="gallery"></div>
+
+  <script>
+    function uploadImage() {
+      const input = document.getElementById("imageInput");
+      const file = input.files[0];
+      if (!file) return alert("Sélectionne une image.");
+
+      const targetUser = document.getElementById("targetUser").value;
+      if (!targetUser) return alert("Sélectionne un utilisateur cible.");
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const base64Image = e.target.result.split(',')[1]; // retirer le préfixe base64
+
+        fetch("https://api.imgur.com/3/image", {
+          method: "POST",
+          headers: {
+            Authorization: "Client-ID 2343a8f85f88271",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            image: base64Image,
+            type: "base64",
+          }),
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            const imgUrl = data.data.link;
+            const images = JSON.parse(localStorage.getItem("images") || "[]");
+            const id = Date.now();
+            images.push({ id, src: imgUrl, owner: targetUser });
+            localStorage.setItem("images", JSON.stringify(images));
+            loadGallery();
+            input.value = "";
+          } else {
+            alert("Erreur Imgur : " + data.data.error);
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          alert("Erreur lors de l'envoi à Imgur.");
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function loadGallery() {
+      const gallery = document.getElementById("gallery");
+      const images = JSON.parse(localStorage.getItem("images") || "[]");
+      gallery.innerHTML = "";
+      images.forEach(img => {
+        const card = document.createElement("div");
+        card.className = "card";
+
+        const image = document.createElement("img");
+        image.src = img.src;
+        image.alt = "Image";
+        image.referrerPolicy = "no-referrer"; // 🛡️ pour compatibilité WebViewer MIT
+
+        const owner = document.createElement("p");
+        owner.textContent = `👤 ${img.owner}`;
+
+        card.appendChild(image);
+        card.appendChild(owner);
+        gallery.appendChild(card);
+      });
+    }
+
+    window.onload = loadGallery;
+  </script>
+
+</body>
+</html>
